@@ -4,21 +4,24 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 
 class MyAccountManager(BaseUserManager):
 
-    def create_user(self, first_name, last_name, username, email, password=None):
+    def create_user(self, first_name, last_name, username, email, password=None, **extra_fields):
+
         if not email:
             raise ValueError('User must have an email address')
         if not username:
             raise ValueError('User must have a username')
 
         email = self.normalize_email(email)
+
         user = self.model(
             email=email,
             username=username,
             first_name=first_name,
             last_name=last_name,
+            **extra_fields   # <-- important
         )
+
         user.set_password(password)
-        user.is_active = True
         user.save(using=self._db)
         return user
 
@@ -28,12 +31,12 @@ class MyAccountManager(BaseUserManager):
             username=username,
             password=password,
             first_name=first_name,
-            last_name=last_name,  
+            last_name=last_name,
+            is_staff=True,
+            is_admin=True,
+            is_superadmin=True,
+            is_active=True,
         )
-        user.is_admin = True
-        user.is_active = True
-        user.is_staff = True
-        user.is_superadmin = True
         user.save(using=self._db)
         return user
 
@@ -45,6 +48,7 @@ class Account(AbstractBaseUser):
     email = models.EmailField(max_length=100, unique=True)
     phone_number = models.CharField(max_length=50)
 
+    #required
     date_joined = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(auto_now=True)
     is_admin = models.BooleanField(default=False)
