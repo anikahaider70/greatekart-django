@@ -13,7 +13,12 @@ from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import EmailMessage, BadHeaderError
+from carts.views import _cart_id
+from carts.models import Cart, CartItem
 import smtplib
+import requests
+
+
 
 def register(request):
     if request.method == 'POST':
@@ -63,18 +68,51 @@ def register(request):
 
 def login(request):
     if request.method == 'POST':
-        email =request.POST['email']
-        password =request.POST['password']
+        email = request.POST['email']
+        password = request.POST['password']
 
         user = auth.authenticate(email=email, password=password)
 
         if user is not None:
+            try:
+                print('entering inside try block')
+                cart = Cart.objects.get(cart_id=_cart_id(request))
+                is_cart_item_exists = CartItem.objects.filter(cart=cart).exists()
+                print(is_cart_item_exists)
+
+                if is_cart_item_exists:
+                    cart_item = CartItem.objects.filter(cart=cart)
+                    print(cart_item)
+
+                    for item in cart_item:
+                        item.user = user
+                        item.save()
+
+            except:
+                print('entering inside except block')
+                pass   
+
             auth.login(request, user)
             messages.success(request, 'You are now logged in.')
+
+            url = request.META.get('HTTP_REFERER')
+            try:
+                query = requests.utils.urlparse(url).query
+                #next=/cart/checkout/
+                params = dict(x.split('=') for x in query.split('&'))
+                print('params->', params)
+                if 'next' in params:
+                    nextPage = params['next']
+                    return redirect(nextPage)
+            except:
+                pass
+
             return redirect('dashboard')
+
         else:
-            messages.error(request, 'Invlid login credentials')
+            messages.error(request, 'Invalid login credentials')
             return redirect('login')
+
     return render(request, 'accounts/login.html')
 
 
